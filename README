@@ -202,8 +202,10 @@ AllTests.c or dealing with any of the other suite code.
 
 CREDITS
 
-[02.23.2003] Dave Glowacki <dglo@hyde.ssec.wisc.edu> has added
-(1) file name and line numbers to the error messages, (2)
-AssertDblEquals for doubles, (3) Assert<X>Equals_Msg version of
-all the Assert<X>Equals to pass in optional message which is
-printed out on assert failure.
+These people have contributed useful code changes to the CuTest project.
+Thanks!
+
+- [02.23.2003] Dave Glowacki <dglo@hyde.ssec.wisc.edu>
+- [04.17.2009] Tobias Lippert <herrmarder@googlemail.com>
+- [11.13.2009] Eli Bendersky <eliben@gmail.com>
+- [12.14.2009] Andrew Brown <abrown@datasci.com>

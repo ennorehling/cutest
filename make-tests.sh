@@ -1,4 +1,4 @@
-#!/usr/local/bin/bash
+#!/usr/bin/env bash
 
 # Auto generate single AllTests file for CuTest.
 # Searches through all *.c files in the current directory.
@@ -11,6 +11,8 @@ if test $# -eq 0 ; then FILES=*.c ; else FILES=$* ; fi
 echo '
 
 /* This is auto-generated code. Edit at your own peril. */
+#include <stdio.h>
+#include <stdlib.h>
 
 #include "CuTest.h"
 
@@ -42,6 +44,8 @@ echo \
     CuSuiteSummary(suite, output);
     CuSuiteDetails(suite, output);
     printf("%s\n", output->buffer);
+    CuStringDelete(output);
+    CuSuiteDelete(suite);
 }
 
 int main(void)
