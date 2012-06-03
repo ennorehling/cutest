@@ -5,7 +5,7 @@
 CuSuite* CuGetSuite();
 CuSuite* CuStringGetSuite();
 
-void RunAllTests(void)
+int RunAllTests(void)
 {
 	CuString *output = CuStringNew();
 	CuSuite* suite = CuSuiteNew();
@@ -17,9 +17,10 @@ void RunAllTests(void)
 	CuSuiteSummary(suite, output);
 	CuSuiteDetails(suite, output);
 	printf("%s\n", output->buffer);
+	return suite->failCount;
 }
 
 int main(void)
 {
-	RunAllTests();
+	return RunAllTests();
 }
