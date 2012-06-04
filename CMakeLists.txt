@@ -2,17 +2,16 @@ project (cutest C)
 
 add_library (${PROJECT_NAME} CuTest.c)
 
-add_executable (AllTests AllTests.c CuTestTest.c)
-target_link_libraries (AllTests cutest)
+add_executable (CuTestTest AllTests.c CuTestTest.c)
+target_link_libraries (CuTestTest cutest)
 
 enable_testing()
-add_test (cutest AllTests)
+add_test (cutest CuTestTest)
 
-find_package (MSVC QUIET)
-if (${MSVC_FOUND})
-    MSVC_CRT_SECURE_NO_WARNINGS (cutest)
-    MSVC_CRT_SECURE_NO_WARNINGS (AllTests)
-endif (${MSVC_FOUND})
+IF (MSVC)
+    find_package (MSVC MODULE)
+    MSVC_CRT_SECURE_NO_WARNINGS (cutest CuTestTest)
+ENDIF (MSVC)
 
 set (CUTEST_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR} CACHE INTERNAL "CuTest headers")
 set (CUTEST_LIBRARIES cutest CACHE INTERNAL "CuTest libraries")
