@@ -1,6 +1,6 @@
 project (cutest C)
 
-add_library (cutest CuTest.c)
+add_library (${PROJECT_NAME} CuTest.c)
 
 add_executable (AllTests AllTests.c CuTestTest.c)
 target_link_libraries (AllTests cutest)
@@ -15,4 +15,4 @@ if (${MSVC_FOUND})
 endif (${MSVC_FOUND})
 
 set (CUTEST_INCLUDE_DIR ${CMAKE_CURRENT_LIST_DIR} CACHE INTERNAL "CuTest headers")
-
+set (CUTEST_LIBRARIES cutest CACHE INTERNAL "CuTest libraries")
