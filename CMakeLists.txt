@@ -1,6 +1,7 @@
 project (cutest C)
 
-add_library (${PROJECT_NAME} CuTest.c)
+FILE (GLOB LIB_HDR *.h)
+add_library (${PROJECT_NAME} CuTest.c ${LIB_HDR})
 
 add_executable (CuTestTest AllTests.c CuTestTest.c)
 target_link_libraries (CuTestTest cutest)
