@@ -2,8 +2,8 @@
 
 #include "CuTest.h"
 
-CuSuite* CuGetSuite();
-CuSuite* CuStringGetSuite();
+CuSuite* CuGetSuite(void);
+CuSuite* CuStringGetSuite(void);
 
 int RunAllTests(void)
 {
