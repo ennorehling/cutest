@@ -1,0 +1,18 @@
+# I am not very good at Makefiles.
+
+CFLAGS += -Wall -g
+INCLUDES = -I.
+
+all: test
+
+bin:
+	mkdir -p $@
+
+test: bin/CuTestTest
+	@bin/CuTestTest
+
+bin/CuTestTest: AllTests.c CuTestTest.c CuTest.c | bin
+	$(CC) $(CFLAGS) $(INCLUDES) -lm -o $@ $^
+
+clean:
+	@rm -rf *~ bin
