@@ -3,7 +3,7 @@
 CFLAGS += -Wall -g
 INCLUDES = -I.
 
-all: test
+all: bin/CuTestTest
 
 bin:
 	mkdir -p $@
