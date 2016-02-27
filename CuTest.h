@@ -4,7 +4,7 @@
 #include <setjmp.h>
 #include <stdarg.h>
 
-#define CUTEST_VERSION  "CuTest 1.5"
+#define CUTEST_VERSION  "CuTest 1.5b"
 
 /* CuString */
 
@@ -46,7 +46,7 @@ struct CuTest
 	TestFunction function;
 	int failed;
 	int ran;
-	const char* message;
+	CuString *message;
 	jmp_buf *jumpBuf;
 };
 

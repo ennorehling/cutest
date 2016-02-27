@@ -12,7 +12,7 @@ test: bin/CuTestTest
 	@bin/CuTestTest
 
 bin/CuTestTest: AllTests.c CuTestTest.c CuTest.c | bin
-	$(CC) $(CFLAGS) $(INCLUDES) -lm -o $@ $^
+	$(CC) $(CFLAGS) $(INCLUDES) -Wno-address -lm -o $@ $^
 
 clean:
 	@rm -rf *~ bin
