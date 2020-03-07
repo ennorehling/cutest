@@ -158,9 +158,13 @@ static void CuFailInternal(CuTest* tc, const char* file, int line, CuString* str
 	CuStringInsert(string, buf, 0);
 
 	tc->failed = 1;
-        free(tc->message);
-        tc->message = CuStringNew();
-        CuStringAppend(tc->message, string->buffer);
+	if (NULL != tc->message) {
+		CuStringAppend(tc->message, "\n");
+	}
+	else {
+		tc->message = CuStringNew();
+	}
+	CuStringAppend(tc->message, string->buffer);
 	if (tc->jumpBuf != 0) longjmp(*(tc->jumpBuf), 0);
 }
 

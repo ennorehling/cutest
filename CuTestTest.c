@@ -170,24 +170,30 @@ void TestCuTestInit(CuTest *tc)
 
 void TestCuAssert(CuTest* tc)
 {
+	CuTest tc1;
+	CuTestInit(&tc1, "MyTest", TestPasses);
+	CuAssert(&tc1, "test 1", 5 == 4 + 1);
+	CuAssertTrue(tc, !tc1.failed);
+	CuAssertTrue(tc, tc1.message == NULL);
+
 	CuTest tc2;
 	CuTestInit(&tc2, "MyTest", TestPasses);
-
-	CuAssert(&tc2, "test 1", 5 == 4 + 1);
-	CuAssertTrue(tc, !tc2.failed);
-        CuAssertTrue(tc, tc2.message == NULL);
-
 	CuAssert(&tc2, "test 2", 0);
 	CuAssertTrue(tc, tc2.failed);
 	CompareAsserts(tc, "CuAssert didn't fail", "test 2", tc2.message);
 
-	CuAssert(&tc2, "test 3", 1);
-	CuAssertTrue(tc, tc2.failed);
-	CompareAsserts(tc, "CuAssert didn't fail", "test 2", tc2.message);
+	CuTest tc3;
+	CuTestInit(&tc3, "MyTest", TestPasses);
+	CuAssert(&tc3, "test 2", 0);
+	CuAssert(&tc3, "test 3", 1);
+	CuAssertTrue(tc, tc3.failed);
+	CompareAsserts(tc, "CuAssert didn't fail", "test 2", tc3.message);
 
-	CuAssert(&tc2, "test 4", 0);
-	CuAssertTrue(tc, tc2.failed);
-	CompareAsserts(tc, "CuAssert didn't fail", "test 4", tc2.message);
+	CuTest tc4;
+	CuTestInit(&tc4, "MyTest", TestPasses);
+	CuAssert(&tc4, "test 4", 0);
+	CuAssertTrue(tc, tc4.failed);
+	CompareAsserts(tc, "CuAssert didn't fail", "test 4", tc4.message);
 
 }
 
@@ -528,18 +534,21 @@ void TestFail(CuTest* tc)
 void TestAssertStrEquals(CuTest* tc)
 {
 	jmp_buf buf;
-	CuTest *tc2 = CuTestNew("TestAssertStrEquals", zTestFails);
 
 	const char* expected = "expected <hello> but was <world>";
 	const char *expectedMsg = "some text: expected <hello> but was <world>";
 
-	tc2->jumpBuf = &buf;
+	CuTest *tc1 = CuTestNew("TestAssertStrEquals", zTestFails);
+	tc1->jumpBuf = &buf;
 	if (setjmp(buf) == 0)
 	{
-		CuAssertStrEquals(tc2, "hello", "world");
+		CuAssertStrEquals(tc1, "hello", "world");
 	}
-	CuAssertTrue(tc, tc2->failed);
-	CompareAsserts(tc, "CuAssertStrEquals failed", expected, tc2->message);
+	CuAssertTrue(tc, tc1->failed);
+	CompareAsserts(tc, "CuAssertStrEquals failed", expected, tc1->message);
+
+	CuTest *tc2 = CuTestNew("TestAssertStrEquals", zTestFails);
+	tc2->jumpBuf = &buf;
 	if (setjmp(buf) == 0)
 	{
 		CuAssertStrEquals_Msg(tc2, "some text", "hello", "world");
@@ -571,18 +580,21 @@ void TestAssertStrEquals_NULL(CuTest* tc)
 void TestAssertStrEquals_FailNULLStr(CuTest* tc)
 {
 	jmp_buf buf;
-	CuTest *tc2 = CuTestNew("TestAssertStrEquals_FailNULLStr", zTestFails);
 
 	const char* expected = "expected <hello> but was <NULL>";
 	const char *expectedMsg = "some text: expected <hello> but was <NULL>";
 
-	tc2->jumpBuf = &buf;
+	CuTest *tc1 = CuTestNew("TestAssertStrEquals_FailNULLStr", zTestFails);
+	tc1->jumpBuf = &buf;
 	if (setjmp(buf) == 0)
 	{
-		CuAssertStrEquals(tc2, "hello", NULL);
+		CuAssertStrEquals(tc1, "hello", NULL);
 	}
-	CuAssertTrue(tc, tc2->failed);
-	CompareAsserts(tc, "CuAssertStrEquals_FailNULLStr failed", expected, tc2->message);
+	CuAssertTrue(tc, tc1->failed);
+	CompareAsserts(tc, "CuAssertStrEquals_FailNULLStr failed", expected, tc1->message);
+
+	CuTest *tc2 = CuTestNew("TestAssertStrEquals_FailNULLStr", zTestFails);
+	tc2->jumpBuf = &buf;
 	if (setjmp(buf) == 0)
 	{
 		CuAssertStrEquals_Msg(tc2, "some text", "hello", NULL);
@@ -594,18 +606,20 @@ void TestAssertStrEquals_FailNULLStr(CuTest* tc)
 void TestAssertStrEquals_FailStrNULL(CuTest* tc)
 {
 	jmp_buf buf;
-	CuTest *tc2 = CuTestNew("TestAssertStrEquals_FailStrNULL", zTestFails);
-
 	const char* expected = "expected <NULL> but was <hello>";
 	const char *expectedMsg = "some text: expected <NULL> but was <hello>";
 
-	tc2->jumpBuf = &buf;
+	CuTest *tc1 = CuTestNew("TestAssertStrEquals_FailStrNULL", zTestFails);
+	tc1->jumpBuf = &buf;
 	if (setjmp(buf) == 0)
 	{
-		CuAssertStrEquals(tc2, NULL, "hello");
+		CuAssertStrEquals(tc1, NULL, "hello");
 	}
-	CuAssertTrue(tc, tc2->failed);
-	CompareAsserts(tc, "CuAssertStrEquals_FailStrNULL failed", expected, tc2->message);
+	CuAssertTrue(tc, tc1->failed);
+	CompareAsserts(tc, "CuAssertStrEquals_FailStrNULL failed", expected, tc1->message);
+
+	CuTest *tc2 = CuTestNew("TestAssertStrEquals_FailStrNULL", zTestFails);
+	tc2->jumpBuf = &buf;
 	if (setjmp(buf) == 0)
 	{
 		CuAssertStrEquals_Msg(tc2, "some text", NULL, "hello");
@@ -617,16 +631,19 @@ void TestAssertStrEquals_FailStrNULL(CuTest* tc)
 void TestAssertIntEquals(CuTest* tc)
 {
 	jmp_buf buf;
-	CuTest *tc2 = CuTestNew("TestAssertIntEquals", zTestFails);
+	CuTest *tc1 = CuTestNew("TestAssertIntEquals", zTestFails);
 	const char* expected = "expected <42> but was <32>";
 	const char* expectedMsg = "some text: expected <42> but was <32>";
-	tc2->jumpBuf = &buf;
+	tc1->jumpBuf = &buf;
 	if (setjmp(buf) == 0)
 	{
-		CuAssertIntEquals(tc2, 42, 32);
+		CuAssertIntEquals(tc1, 42, 32);
 	}
-	CuAssertTrue(tc, tc2->failed);
-	CompareAsserts(tc, "CuAssertIntEquals failed", expected, tc2->message);
+	CuAssertTrue(tc, tc1->failed);
+	CompareAsserts(tc, "CuAssertIntEquals failed", expected, tc1->message);
+
+	CuTest *tc2 = CuTestNew("TestAssertIntEquals", zTestFails);
+	tc2->jumpBuf = &buf;
 	if (setjmp(buf) == 0)
 	{
 		CuAssertIntEquals_Msg(tc2, "some text", 42, 32);
@@ -663,13 +680,15 @@ void TestAssertDblEquals(CuTest* tc)
 	}
 	CuAssertTrue(tc, tc2->failed);
 	CompareAsserts(tc, "CuAssertDblEquals failed", expected, tc2->message);
-	tc2->jumpBuf = &buf;
+
+	CuTest *tc3 = CuTestNew("TestAssertDblEquals", zTestFails);
+	tc3->jumpBuf = &buf;
 	if (setjmp(buf) == 0)
 	{
-		CuAssertDblEquals_Msg(tc2, "some text", x, y, 0.001);
+		CuAssertDblEquals_Msg(tc3, "some text", x, y, 0.001);
 	}
-	CuAssertTrue(tc, tc2->failed);
-	CompareAsserts(tc, "CuAssertDblEquals failed", expectedMsg, tc2->message);
+	CuAssertTrue(tc, tc3->failed);
+	CompareAsserts(tc, "CuAssertDblEquals failed", expectedMsg, tc3->message);
 }
 
 /*-------------------------------------------------------------------------*
@@ -763,7 +782,7 @@ static void FrameMockSetup(CuTest *tc) {
 
 	TestPhaseRecord(&TestMockData.tracker, SETUP);
 
-	CuAssert(tc, "Have to fail", !fail);
+	CuAssert(tc, "Setup has to fail", !fail);
 	TestMockData.setupContinuedAfterAssert = true;
 }
 
@@ -774,7 +793,7 @@ static void FrameMockTest(CuTest *tc) {
 	TestPhaseRecord(&TestMockData.tracker, TEST);
 	TestMockData.ContextPassed = CuTestContextGet(tc);
 
-	CuAssert(tc, "Have to fail", !fail);
+	CuAssert(tc, "Test has to fail", !fail);
 	TestMockData.testContinuedAfterAssert = true;
 }
 
@@ -784,7 +803,7 @@ static void FrameMockTearDown(CuTest *tc) {
 
 	TestPhaseRecord(&TestMockData.tracker, TEARDOWN);
 
-	CuAssert(tc, "Have to fail", !fail);
+	CuAssert(tc, "Teardown has to fail", !fail);
 	TestMockData.teardownContinuedAfterAssert = true;
 }
 
@@ -880,6 +899,27 @@ static void TestSuiteTeardownIsExecutedIfTestFails(CuTest *tc) {
 	CuAssertIntEquals(tc, TEST, tracker->TestSequence[1]);
 	CuAssertIntEquals(tc, TEARDOWN, tracker->TestSequence[2]);
 	TestPhaseNoMoreEventsFrom(tc, tracker, 3);
+}
+
+static void TestSuiteFailingTestMessageIsPreservedWhenTeardownFails(CuTest *tc) {
+	int context = 0;
+	TestMockDataInit();
+	CuSuite* uut = CuSuiteNewWithFrame(&FrameMock, &context);
+
+	SUITE_ADD_TEST(uut, FrameMockTest);
+
+	TestMockData.testShallFail = true;
+	TestMockData.teardownShallFail = true;
+
+	CuSuiteRun(uut);
+
+	char *message = uut->list[0]->message->buffer;
+	char *testFailMsg = strstr(message, "Test has to fail\n");
+	char *teardownFailMsg = strstr(message, "Teardown has to fail");
+
+	CuAssertPtrNotNullMsg(tc, "Test fail message not found", testFailMsg);
+	CuAssertPtrNotNullMsg(tc, "Teardown fail message not found", teardownFailMsg);
+	CuAssert(tc, "Message order correct", testFailMsg < teardownFailMsg);
 }
 
 static void TestSuiteContextPassedToCuTest(CuTest *tc) {
@@ -1001,6 +1041,7 @@ CuSuite* CuSuiteFrameGetSuite(void) {
 	SUITE_ADD_TEST(suite, TestSuiteTestFailsIfSetupFails);
 	SUITE_ADD_TEST(suite, TestSuiteTestFailsIfTeardownFails);
 	SUITE_ADD_TEST(suite, TestSuiteTeardownIsExecutedIfTestFails);
+	SUITE_ADD_TEST(suite, TestSuiteFailingTestMessageIsPreservedWhenTeardownFails);
 	SUITE_ADD_TEST(suite, TestSuiteContextPassedToCuTest);
 	SUITE_ADD_TEST(suite, TestSuiteSetupInterruptsUponFailedAssert);
 	SUITE_ADD_TEST(suite, TestSuiteTestInterruptsUponFailedAssert);
