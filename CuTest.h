@@ -48,12 +48,15 @@ struct CuTest
 	int ran;
 	CuString *message;
 	jmp_buf *jumpBuf;
+	void *context;
 };
 
 void CuTestInit(CuTest* t, const char* name, TestFunction function);
 CuTest* CuTestNew(const char* name, TestFunction function);
 void CuTestRun(CuTest* tc);
 void CuTestDelete(CuTest *t);
+void *CuTestContextGet(CuTest *tc);
+void CuTestContextSet(CuTest *tc, void *context);
 
 /* Internal versions of assert functions -- use the public versions */
 void CuFail_Line(CuTest* tc, const char* file, int line, const char* message2, const char* message);
@@ -95,17 +98,25 @@ void CuAssertPtrEquals_LineMsg(CuTest* tc,
 
 #define SUITE_ADD_TEST(SUITE,TEST)	CuSuiteAdd(SUITE, CuTestNew(#TEST, TEST))
 
+typedef struct CuTestFrame {
+	void (*setup)(CuTest *tc);
+	void (*teardown)(CuTest *tc);
+}CuTestFrame;
+
 typedef struct
 {
 	int count;
 	CuTest* list[MAX_TEST_CASES];
 	int failCount;
 
+	const CuTestFrame *frame;
+	void *frameContext;
 } CuSuite;
 
-
 void CuSuiteInit(CuSuite* testSuite);
+void CuSuiteInitWithFrame(CuSuite* testSuite, const CuTestFrame *frame, void *frameContext);
 CuSuite* CuSuiteNew(void);
+CuSuite* CuSuiteNewWithFrame(const CuTestFrame *frame, void *frameContext);
 void CuSuiteDelete(CuSuite *testSuite);
 void CuSuiteAdd(CuSuite* testSuite, CuTest *testCase);
 void CuSuiteAddSuite(CuSuite* testSuite, CuSuite* testSuite2);

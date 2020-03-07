@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
 
 #include "CuTest.h"
 
@@ -704,6 +705,284 @@ CuSuite* CuGetSuite(void)
 	SUITE_ADD_TEST(suite, TestCuSuiteDetails_SinglePass);
 	SUITE_ADD_TEST(suite, TestCuSuiteDetails_MultiplePasses);
 	SUITE_ADD_TEST(suite, TestCuSuiteDetails_MultipleFails);
+
+	return suite;
+}
+
+typedef enum TestPhase {
+	UNKNOWN = 0,
+	SETUP,
+	TEST,
+	TEARDOWN
+}TestPhase;
+
+#define TEST_PHASE_RECORDER_LEN 50
+
+typedef struct TestPhaseRecorder {
+	TestPhase TestSequence[TEST_PHASE_RECORDER_LEN];
+	size_t    pos;
+}TestPhaseTracker;
+
+static void TestPhaseRecord(TestPhaseTracker *tracker, TestPhase phase) {
+	if (tracker->pos < TEST_PHASE_RECORDER_LEN) {
+		tracker->TestSequence[tracker->pos++] = phase;
+	}
+}
+
+static void TestPhaseNoMoreEventsFrom(CuTest *tc, TestPhaseTracker *tracker, size_t pos) {
+	for (size_t i = pos;i < TEST_PHASE_RECORDER_LEN;i++) {
+		CuAssertIntEquals(tc, UNKNOWN, tracker->TestSequence[i]);
+	}
+}
+
+static struct TestMockData {
+	TestPhaseTracker tracker;
+
+	void *ContextPassed;
+
+	bool setupShallFail;
+	bool teardownShallFail;
+	bool testShallFail;
+
+	bool setupContinuedAfterAssert;
+	bool testContinuedAfterAssert;
+	bool teardownContinuedAfterAssert;
+}TestMockData;
+
+static void TestMockDataInit(void) {
+	memset(&TestMockData, 0, sizeof(TestMockData));
+}
+
+static void FrameMockSetup(CuTest *tc) {
+	bool fail = TestMockData.setupShallFail;
+	TestMockData.setupShallFail = false;
+
+	TestPhaseRecord(&TestMockData.tracker, SETUP);
+
+	CuAssert(tc, "Have to fail", !fail);
+	TestMockData.setupContinuedAfterAssert = true;
+}
+
+static void FrameMockTest(CuTest *tc) {
+	bool fail = TestMockData.testShallFail;
+	TestMockData.testShallFail = false;
+
+	TestPhaseRecord(&TestMockData.tracker, TEST);
+	TestMockData.ContextPassed = CuTestContextGet(tc);
+
+	CuAssert(tc, "Have to fail", !fail);
+	TestMockData.testContinuedAfterAssert = true;
+}
+
+static void FrameMockTearDown(CuTest *tc) {
+	bool fail = TestMockData.teardownShallFail;
+	TestMockData.teardownShallFail = false;
+
+	TestPhaseRecord(&TestMockData.tracker, TEARDOWN);
+
+	CuAssert(tc, "Have to fail", !fail);
+	TestMockData.teardownContinuedAfterAssert = true;
+}
+
+static const CuTestFrame FrameMock = {
+	.setup = FrameMockSetup,
+	.teardown = FrameMockTearDown,
+};
+
+static void TestSuiteWithFrameInit(CuTest *tc) {
+	CuSuite ts;
+	int context = 0;
+	CuSuiteInitWithFrame(&ts, &FrameMock, &context);
+	CuAssertPtrEquals(tc, (void *)&FrameMock, (void *)ts.frame);
+	CuAssertPtrEquals(tc, &context, ts.frameContext);
+}
+
+static void TestSuiteWithFrameNew(CuTest *tc) {
+	int context = 0;
+	CuSuite* ts = CuSuiteNewWithFrame(&FrameMock, &context);
+	CuAssertPtrEquals(tc, (void *)&FrameMock, (void *)ts->frame);
+	CuAssertPtrEquals(tc, &context, ts->frameContext);
+}
+
+static void TestSuiteRunsSetupTestTeardown(CuTest *tc) {
+	int context = 0;
+	TestMockDataInit();
+	CuSuite* uut = CuSuiteNewWithFrame(&FrameMock, &context);
+
+	SUITE_ADD_TEST(uut, FrameMockTest);
+
+	CuSuiteRun(uut);
+
+	TestPhaseTracker *tracker = &TestMockData.tracker;
+	CuAssertIntEquals(tc, SETUP, tracker->TestSequence[0]);
+	CuAssertIntEquals(tc, TEST, tracker->TestSequence[1]);
+	CuAssertIntEquals(tc, TEARDOWN, tracker->TestSequence[2]);
+	TestPhaseNoMoreEventsFrom(tc, tracker, 3);
+}
+
+static void TestSuiteTestFailsIfSetupFails(CuTest *tc) {
+	int context = 0;
+	TestMockDataInit();
+	CuSuite* uut = CuSuiteNewWithFrame(&FrameMock, &context);
+
+	SUITE_ADD_TEST(uut, FrameMockTest);
+	SUITE_ADD_TEST(uut, TestPasses);
+
+	TestMockData.setupShallFail = true;
+
+	CuSuiteRun(uut);
+
+	CuAssertIntEquals(tc, 2, uut->count);
+	CuAssertIntEquals(tc, 1, uut->failCount);
+
+	TestPhaseTracker *tracker = &TestMockData.tracker;
+	CuAssertIntEquals(tc, SETUP, tracker->TestSequence[0]);
+	CuAssertIntEquals(tc, SETUP, tracker->TestSequence[1]);
+	CuAssertIntEquals(tc, TEARDOWN, tracker->TestSequence[2]);
+	TestPhaseNoMoreEventsFrom(tc, tracker, 3);
+}
+
+static void TestSuiteTestFailsIfTeardownFails(CuTest *tc) {
+	int context = 0;
+	TestMockDataInit();
+	CuSuite* uut = CuSuiteNewWithFrame(&FrameMock, &context);
+
+	SUITE_ADD_TEST(uut, FrameMockTest);
+
+	TestMockData.teardownShallFail = true;
+
+	CuSuiteRun(uut);
+
+	CuAssertIntEquals(tc, 1, uut->count);
+	CuAssertIntEquals(tc, 1, uut->failCount);
+}
+
+static void TestSuiteTeardownIsExecutedIfTestFails(CuTest *tc) {
+	int context = 0;
+	TestMockDataInit();
+	CuSuite* uut = CuSuiteNewWithFrame(&FrameMock, &context);
+
+	SUITE_ADD_TEST(uut, FrameMockTest);
+
+	TestMockData.testShallFail = true;
+
+	CuSuiteRun(uut);
+
+	CuAssertIntEquals(tc, 1, uut->count);
+	CuAssertIntEquals(tc, 1, uut->failCount);
+
+	TestPhaseTracker *tracker = &TestMockData.tracker;
+	CuAssertIntEquals(tc, SETUP, tracker->TestSequence[0]);
+	CuAssertIntEquals(tc, TEST, tracker->TestSequence[1]);
+	CuAssertIntEquals(tc, TEARDOWN, tracker->TestSequence[2]);
+	TestPhaseNoMoreEventsFrom(tc, tracker, 3);
+}
+
+static void TestSuiteContextPassedToCuTest(CuTest *tc) {
+	int context = 0;
+	TestMockDataInit();
+	CuSuite* uut = CuSuiteNewWithFrame(&FrameMock, &context);
+
+	SUITE_ADD_TEST(uut, FrameMockTest);
+
+	CuSuiteRun(uut);
+
+	CuAssertPtrEquals(tc, &context, TestMockData.ContextPassed);
+}
+
+static void TestSuiteSetupInterruptsUponFailedAssert(CuTest *tc) {
+	int context = 0;
+	TestMockDataInit();
+	CuSuite* uut = CuSuiteNewWithFrame(&FrameMock, &context);
+	TestMockData.setupShallFail = true;
+	SUITE_ADD_TEST(uut, FrameMockTest);
+
+	CuSuiteRun(uut);
+
+	CuAssert(tc, "Setup did continue", !TestMockData.setupContinuedAfterAssert);
+}
+
+static void TestSuiteTestInterruptsUponFailedAssert(CuTest *tc) {
+	int context = 0;
+	TestMockDataInit();
+	CuSuite* uut = CuSuiteNewWithFrame(&FrameMock, &context);
+	TestMockData.testShallFail = true;
+	SUITE_ADD_TEST(uut, FrameMockTest);
+
+	CuSuiteRun(uut);
+
+	CuAssert(tc, "Test did continue", !TestMockData.testContinuedAfterAssert);
+}
+
+static void TestSuiteTeardownInterruptsUponFailedAssert(CuTest *tc) {
+	int context = 0;
+	TestMockDataInit();
+	CuSuite* uut = CuSuiteNewWithFrame(&FrameMock, &context);
+	TestMockData.teardownShallFail = true;
+	SUITE_ADD_TEST(uut, FrameMockTest);
+
+	CuSuiteRun(uut);
+
+	CuAssert(tc, "Teardown did continue", !TestMockData.teardownContinuedAfterAssert);
+}
+
+static void *TheSetupContext;
+static void *TheTestContext;
+static void *TheTeardownContext;
+
+static void FrameContextSetup(CuTest *tc) {
+	TheSetupContext = CuTestContextGet(tc);
+	CuTestContextSet(tc, &TheSetupContext);
+}
+
+static void FrameContextTest(CuTest *tc) {
+	TheTestContext = CuTestContextGet(tc);
+	CuTestContextSet(tc, &TheTestContext);
+}
+
+static void FrameContextTearDown(CuTest *tc) {
+	TheTeardownContext = CuTestContextGet(tc);
+	CuTestContextSet(tc, &TheTeardownContext);
+}
+
+static const CuTestFrame FrameContextMock = {
+	.setup = FrameContextSetup,
+	.teardown = FrameContextTearDown,
+};
+
+static void TestSuiteSetupTestTeardownWithContext(CuTest *tc) {
+	int context = 0;
+
+	TheSetupContext = NULL;
+	TheTestContext = NULL;
+	TheTeardownContext = NULL;
+
+	CuSuite* uut = CuSuiteNewWithFrame(&FrameContextMock, &context);
+
+	SUITE_ADD_TEST(uut, FrameContextTest);
+
+	CuSuiteRun(uut);
+
+	CuAssertPtrEquals(tc, &context, TheSetupContext);
+	CuAssertPtrEquals(tc, &TheSetupContext, TheTestContext);
+	CuAssertPtrEquals(tc, &TheTestContext, TheTeardownContext);
+	CuAssertPtrEquals(tc, &TheTeardownContext, uut->frameContext);
+}
+
+CuSuite* CuSuiteFrameGetSuite(void) {
+	CuSuite* suite = CuSuiteNew();
+
+	SUITE_ADD_TEST(suite, TestSuiteWithFrameInit);
+	SUITE_ADD_TEST(suite, TestSuiteWithFrameNew);
+	SUITE_ADD_TEST(suite, TestSuiteRunsSetupTestTeardown);
+	SUITE_ADD_TEST(suite, TestSuiteTestFailsIfSetupFails);
+	SUITE_ADD_TEST(suite, TestSuiteTestFailsIfTeardownFails);
+	SUITE_ADD_TEST(suite, TestSuiteTeardownIsExecutedIfTestFails);
+	SUITE_ADD_TEST(suite, TestSuiteContextPassedToCuTest);
+	SUITE_ADD_TEST(suite, TestSuiteSetupInterruptsUponFailedAssert);
+	SUITE_ADD_TEST(suite, TestSuiteTestInterruptsUponFailedAssert);
+	SUITE_ADD_TEST(suite, TestSuiteTeardownInterruptsUponFailedAssert);
+	SUITE_ADD_TEST(suite, TestSuiteSetupTestTeardownWithContext);
 
 	return suite;
 }

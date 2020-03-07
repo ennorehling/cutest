@@ -134,16 +134,20 @@ void CuTestDelete(CuTest *t)
         free(t);
 }
 
-void CuTestRun(CuTest* tc)
-{
+static void TestFunctionRun(CuTest *tc, TestFunction function) {
 	jmp_buf buf;
 	tc->jumpBuf = &buf;
 	if (setjmp(buf) == 0)
 	{
 		tc->ran = 1;
-		(tc->function)(tc);
+		function(tc);
 	}
 	tc->jumpBuf = 0;
+}
+
+void CuTestRun(CuTest* tc)
+{
+	TestFunctionRun(tc, tc->function);
 }
 
 static void CuFailInternal(CuTest* tc, const char* file, int line, CuString* string)
@@ -233,22 +237,52 @@ void CuAssertPtrEquals_LineMsg(CuTest* tc, const char* file, int line, const cha
 	CuFail_Line(tc, file, line, message, buf);
 }
 
+void *CuTestContextGet(CuTest *tc) {
+	return tc->context;
+}
+
+void CuTestContextSet(CuTest *tc, void *context) {
+	tc->context = context;
+}
 
 /*-------------------------------------------------------------------------*
  * CuSuite
  *-------------------------------------------------------------------------*/
+static void EmptySetup(CuTest *tc) {
+	(void)tc;
+}
+
+static void EmptyTeardown(CuTest *tc) {
+	(void)tc;
+}
+
+static const CuTestFrame EmptyFrame = {
+	.setup = EmptySetup,
+	.teardown = EmptyTeardown,
+};
 
 void CuSuiteInit(CuSuite* testSuite)
 {
+	CuSuiteInitWithFrame(testSuite, &EmptyFrame, NULL);
+}
+
+void CuSuiteInitWithFrame(CuSuite* testSuite, const CuTestFrame *frame, void *frameContext)
+{
 	testSuite->count = 0;
 	testSuite->failCount = 0;
-        memset(testSuite->list, 0, sizeof(testSuite->list));
+	memset(testSuite->list, 0, sizeof(testSuite->list));
+	testSuite->frame = frame;
+	testSuite->frameContext = frameContext;
 }
 
 CuSuite* CuSuiteNew(void)
 {
+	return CuSuiteNewWithFrame(&EmptyFrame, NULL);
+}
+
+CuSuite* CuSuiteNewWithFrame(const CuTestFrame *frame, void *frameContext) {
 	CuSuite* testSuite = CU_ALLOC(CuSuite);
-	CuSuiteInit(testSuite);
+	CuSuiteInitWithFrame(testSuite, frame, frameContext);
 	return testSuite;
 }
 
@@ -285,11 +319,20 @@ void CuSuiteAddSuite(CuSuite* testSuite, CuSuite* testSuite2)
 
 void CuSuiteRun(CuSuite* testSuite)
 {
+	const CuTestFrame * const frame = testSuite->frame;
 	int i;
+
 	for (i = 0 ; i < testSuite->count ; ++i)
 	{
 		CuTest* testCase = testSuite->list[i];
-		CuTestRun(testCase);
+		testCase->context = testSuite->frameContext;
+
+		TestFunctionRun(testCase, frame->setup);
+		if (!testCase->failed) {
+			CuTestRun(testCase);
+			TestFunctionRun(testCase, frame->teardown);
+		}
+		testSuite->frameContext = testCase->context;
 		if (testCase->failed) { testSuite->failCount += 1; }
 	}
 }
