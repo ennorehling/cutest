@@ -103,7 +103,7 @@ typedef struct CuTestFrame {
 	void (*teardown)(CuTest *tc);
 }CuTestFrame;
 
-typedef struct
+typedef struct CuSuite
 {
 	int count;
 	CuTest* list[MAX_TEST_CASES];
@@ -111,6 +111,8 @@ typedef struct
 
 	const CuTestFrame *frame;
 	void *frameContext;
+
+	struct CuSuite *next;
 } CuSuite;
 
 void CuSuiteInit(CuSuite* testSuite);

@@ -267,6 +267,7 @@ void TestCuSuiteInit(CuTest* tc)
 	CuSuiteInit(&ts);
 	CuAssertTrue(tc, ts.count == 0);
 	CuAssertTrue(tc, ts.failCount == 0);
+	CuAssertPtrEquals(tc, NULL, ts.next);
 }
 
 void TestCuSuiteNew(CuTest* tc)
@@ -274,6 +275,7 @@ void TestCuSuiteNew(CuTest* tc)
 	CuSuite* ts = CuSuiteNew();
 	CuAssertTrue(tc, ts->count == 0);
 	CuAssertTrue(tc, ts->failCount == 0);
+	CuAssertPtrEquals(tc, NULL, ts->next);
 }
 
 void TestCuSuiteAddTest(CuTest* tc)
@@ -302,12 +304,14 @@ void TestCuSuiteAddSuite(CuTest* tc)
 	CuSuiteAdd(ts2, CuTestNew("TestFails4", zTestFails));
 
 	CuSuiteAddSuite(ts1, ts2);
-	CuAssertIntEquals(tc, 4, ts1->count);
+	CuAssertIntEquals(tc, 2, ts1->count);
+	CuAssertIntEquals(tc, 2, ts2->count);
+	CuAssertPtrEquals(tc, ts2, ts1->next);
 
 	CuAssertStrEquals(tc, "TestFails1", ts1->list[0]->name);
 	CuAssertStrEquals(tc, "TestFails2", ts1->list[1]->name);
-	CuAssertStrEquals(tc, "TestFails3", ts1->list[2]->name);
-	CuAssertStrEquals(tc, "TestFails4", ts1->list[3]->name);
+	CuAssertStrEquals(tc, "TestFails3", ts2->list[0]->name);
+	CuAssertStrEquals(tc, "TestFails4", ts2->list[1]->name);
 }
 
 void TestCuSuiteRun(CuTest* tc)
@@ -969,6 +973,25 @@ static void TestSuiteSetupTestTeardownWithContext(CuTest *tc) {
 	CuAssertPtrEquals(tc, &TheTeardownContext, uut->frameContext);
 }
 
+static void TestSuitesSetupTestTeardownWithTwoSeparateContexts(CuTest *tc) {
+	int context = 0;
+
+	TheSetupContext = NULL;
+	TheTestContext = NULL;
+	TheTeardownContext = NULL;
+
+	CuSuite* uut = CuSuiteNew();
+	CuSuite* uut2 = CuSuiteNewWithFrame(&FrameContextMock, &context);
+
+	SUITE_ADD_TEST(uut2, FrameContextTest);
+
+	CuSuiteAddSuite(uut, uut2);
+
+	CuSuiteRun(uut);
+
+	CuAssertPtrEquals(tc, &context, TheSetupContext);
+}
+
 CuSuite* CuSuiteFrameGetSuite(void) {
 	CuSuite* suite = CuSuiteNew();
 
@@ -983,6 +1006,97 @@ CuSuite* CuSuiteFrameGetSuite(void) {
 	SUITE_ADD_TEST(suite, TestSuiteTestInterruptsUponFailedAssert);
 	SUITE_ADD_TEST(suite, TestSuiteTeardownInterruptsUponFailedAssert);
 	SUITE_ADD_TEST(suite, TestSuiteSetupTestTeardownWithContext);
+	SUITE_ADD_TEST(suite, TestSuitesSetupTestTeardownWithTwoSeparateContexts);
 
 	return suite;
 }
+
+static void TestSuiteChainSetup(CuTest *tc) {
+	CuSuite *uut = CuSuiteNew();
+
+	CuSuite *uut2 = CuSuiteNew();
+	SUITE_ADD_TEST(uut2, TestPasses);
+	SUITE_ADD_TEST(uut2, TestPasses);
+
+	CuSuite *uut3 = CuSuiteNew();
+	SUITE_ADD_TEST(uut3, zTestFails);
+	SUITE_ADD_TEST(uut3, TestPasses);
+
+	CuSuite *uut4 = CuSuiteNew();
+	SUITE_ADD_TEST(uut4, TestPasses);
+
+	CuSuiteAddSuite(uut, uut2);
+	CuSuiteAddSuite(uut, uut3);
+	CuSuiteAddSuite(uut, uut4);
+
+	CuSuiteRun(uut);
+
+	CuTestContextSet(tc, uut);
+}
+
+static void TestSuiteChainTeardown(CuTest *tc) {
+	CuSuite *uut = CuTestContextGet(tc);
+	CuTestContextSet(tc, NULL);
+
+	CuSuite *toDelete = uut;
+	while (NULL != toDelete) {
+		CuSuite *next = toDelete->next;
+		CuSuiteDelete(toDelete);
+		toDelete = next;
+	}
+}
+
+static const CuTestFrame TestSuiteChainFrame =  {
+	.setup = TestSuiteChainSetup,
+	.teardown = TestSuiteChainTeardown,
+};
+
+static void TestFrameSuiteChainStatistics(CuTest *tc) {
+	CuSuite *uut = CuTestContextGet(tc);
+	CuSuite *uut2 = uut->next;
+	CuSuite *uut3 = uut2->next;
+	CuSuite *uut4 = uut3->next;
+
+	CuAssertIntEquals(tc, 0, uut->count);
+	CuAssertIntEquals(tc, 0, uut->failCount);
+	CuAssertIntEquals(tc, 2, uut2->count);
+	CuAssertIntEquals(tc, 0, uut2->failCount);
+	CuAssertIntEquals(tc, 2, uut3->count);
+	CuAssertIntEquals(tc, 1, uut3->failCount);
+	CuAssertIntEquals(tc, 1, uut4->count);
+	CuAssertIntEquals(tc, 0, uut4->failCount);
+}
+
+static void TestFrameSuiteChainSummary(CuTest *tc) {
+	CuSuite *uut = CuTestContextGet(tc);
+
+	const char *expectedSummary = "..F..\n\n";
+	CuString summary;
+	CuStringInit(&summary);
+	CuSuiteSummary(uut, &summary);
+	CuAssertStrEquals(tc, expectedSummary, summary.buffer);
+}
+
+static void TestFrameSuiteChainDetails(CuTest *tc) {
+	CuSuite *uut = CuTestContextGet(tc);
+
+	const char* expectedDetails = "There was 1 failure:\n"
+								  "1) zTestFails: ../CuTestTest.c:143: test should fail\n\n"
+			                      "!!!FAILURES!!!\n"
+			                      "Runs: 5 Passes: 4 Fails: 1\n";
+	CuString details;
+	CuStringInit(&details);
+	CuSuiteDetails(uut, &details);
+	CuAssertStrEquals(tc, expectedDetails, details.buffer);
+}
+
+CuSuite* CuSuiteChainGetSuite(void) {
+	CuSuite* suite = CuSuiteNewWithFrame(&TestSuiteChainFrame, NULL);
+
+	SUITE_ADD_TEST(suite, TestFrameSuiteChainStatistics);
+	SUITE_ADD_TEST(suite, TestFrameSuiteChainSummary);
+	SUITE_ADD_TEST(suite, TestFrameSuiteChainDetails);
+
+	return suite;
+}
+
