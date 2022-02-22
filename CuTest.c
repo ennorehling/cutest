@@ -1,3 +1,6 @@
+#ifdef _MSC_VER
+#define _CRT_SECURE_NO_WARNINGS
+#endif
 #include <assert.h>
 #include <setjmp.h>
 #include <stdlib.h>
@@ -11,7 +14,7 @@
  * CuStr
  *-------------------------------------------------------------------------*/
 
-char* CuStrAlloc(int size)
+char* CuStrAlloc(size_t size)
 {
 	char* newStr = (char*) malloc( sizeof(char) * (size) );
 	return newStr;
@@ -19,7 +22,7 @@ char* CuStrAlloc(int size)
 
 char* CuStrCopy(const char* old)
 {
-	int len = strlen(old);
+	size_t len = strlen(old);
 	char* newStr = CuStrAlloc(len + 1);
 	strcpy(newStr, old);
 	return newStr;
@@ -54,7 +57,7 @@ void CuStringDelete(CuString *str)
         free(str);
 }
 
-void CuStringResize(CuString* str, int newSize)
+void CuStringResize(CuString* str, size_t newSize)
 {
 	str->buffer = (char*) realloc(str->buffer, sizeof(char) * newSize);
 	str->size = newSize;
@@ -62,7 +65,7 @@ void CuStringResize(CuString* str, int newSize)
 
 void CuStringAppend(CuString* str, const char* text)
 {
-	int length;
+	size_t length;
 
 	if (text == NULL) {
 		text = "NULL";
@@ -93,9 +96,9 @@ void CuStringAppendFormat(CuString* str, const char* format, ...)
 	CuStringAppend(str, buf);
 }
 
-void CuStringInsert(CuString* str, const char* text, int pos)
+void CuStringInsert(CuString* str, const char* text, size_t pos)
 {
-	int length = strlen(text);
+    size_t length = strlen(text);
 	if (pos > str->length)
 		pos = str->length;
 	if (str->length + length + 1 >= str->size)

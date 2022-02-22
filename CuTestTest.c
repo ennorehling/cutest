@@ -1,3 +1,6 @@
+#ifdef _MSC_VER
+#define _CRT_SECURE_NO_WARNINGS
+#endif
 #include <assert.h>
 #include <setjmp.h>
 #include <stdlib.h>
@@ -55,10 +58,10 @@ void TestCuStringAppend(CuTest* tc)
 {
 	CuString* str = CuStringNew();
 	CuStringAppend(str, "hello");
-	CuAssertIntEquals(tc, 5, str->length);
+	CuAssertIntEquals(tc, 5, (int)str->length);
 	CuAssertStrEquals(tc, "hello", str->buffer);
 	CuStringAppend(str, " world");
-	CuAssertIntEquals(tc, 11, str->length);
+	CuAssertIntEquals(tc, 11, (int)str->length);
 	CuAssertStrEquals(tc, "hello world", str->buffer);
 }
 
@@ -67,7 +70,7 @@ void TestCuStringAppendNULL(CuTest* tc)
 {
 	CuString* str = CuStringNew();
 	CuStringAppend(str, NULL);
-	CuAssertIntEquals(tc, 4, str->length);
+	CuAssertIntEquals(tc, 4, (int)str->length);
 	CuAssertStrEquals(tc, "NULL", str->buffer);
 }
 
@@ -79,7 +82,7 @@ void TestCuStringAppendChar(CuTest* tc)
 	CuStringAppendChar(str, 'b');
 	CuStringAppendChar(str, 'c');
 	CuStringAppendChar(str, 'd');
-	CuAssertIntEquals(tc, 4, str->length);
+	CuAssertIntEquals(tc, 4, (int)str->length);
 	CuAssertStrEquals(tc, "abcd", str->buffer);
 }
 
@@ -88,16 +91,16 @@ void TestCuStringInserts(CuTest* tc)
 {
 	CuString* str = CuStringNew();
 	CuStringAppend(str, "world");
-	CuAssertIntEquals(tc, 5, str->length);
+	CuAssertIntEquals(tc, 5, (int)str->length);
 	CuAssertStrEquals(tc, "world", str->buffer);
 	CuStringInsert(str, "hell", 0);
-	CuAssertIntEquals(tc, 9, str->length);
+	CuAssertIntEquals(tc, 9, (int)str->length);
 	CuAssertStrEquals(tc, "hellworld", str->buffer);
 	CuStringInsert(str, "o ", 4);
-	CuAssertIntEquals(tc, 11, str->length);
+	CuAssertIntEquals(tc, 11, (int)str->length);
 	CuAssertStrEquals(tc, "hello world", str->buffer);
 	CuStringInsert(str, "!", 11);
-	CuAssertIntEquals(tc, 12, str->length);
+	CuAssertIntEquals(tc, 12, (int)str->length);
 	CuAssertStrEquals(tc, "hello world!", str->buffer);
 }
 

@@ -3,12 +3,13 @@
 
 #include <setjmp.h>
 #include <stdarg.h>
+#include <stddef.h>
 
-#define CUTEST_VERSION  "CuTest 1.5b"
+#define CUTEST_VERSION  "CuTest 1.5c"
 
 /* CuString */
 
-char* CuStrAlloc(int size);
+char* CuStrAlloc(size_t size);
 char* CuStrCopy(const char* old);
 
 #define CU_ALLOC(TYPE)		((TYPE*) malloc(sizeof(TYPE)))
@@ -19,8 +20,8 @@ char* CuStrCopy(const char* old);
 
 typedef struct
 {
-	int length;
-	int size;
+    size_t length;
+    size_t size;
 	char* buffer;
 } CuString;
 
@@ -30,8 +31,8 @@ void CuStringRead(CuString* str, const char* path);
 void CuStringAppend(CuString* str, const char* text);
 void CuStringAppendChar(CuString* str, char ch);
 void CuStringAppendFormat(CuString* str, const char* format, ...);
-void CuStringInsert(CuString* str, const char* text, int pos);
-void CuStringResize(CuString* str, int newSize);
+void CuStringInsert(CuString* str, const char* text, size_t pos);
+void CuStringResize(CuString* str, size_t newSize);
 void CuStringDelete(CuString* str);
 
 /* CuTest */
