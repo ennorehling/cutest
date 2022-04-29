@@ -4,6 +4,8 @@
 
 CuSuite* CuGetSuite(void);
 CuSuite* CuStringGetSuite(void);
+CuSuite* CuSuiteFrameGetSuite(void);
+CuSuite* CuSuiteChainGetSuite(void);
 
 int RunAllTests(void)
 {
@@ -12,6 +14,8 @@ int RunAllTests(void)
 
 	CuSuiteAddSuite(suite, CuGetSuite());
 	CuSuiteAddSuite(suite, CuStringGetSuite());
+	CuSuiteAddSuite(suite, CuSuiteFrameGetSuite());
+	CuSuiteAddSuite(suite, CuSuiteChainGetSuite());
 
 	CuSuiteRun(suite);
 	CuSuiteSummary(suite, output);

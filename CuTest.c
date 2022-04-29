@@ -137,16 +137,20 @@ void CuTestDelete(CuTest *t)
         free(t);
 }
 
-void CuTestRun(CuTest* tc)
-{
+static void TestFunctionRun(CuTest *tc, TestFunction function) {
 	jmp_buf buf;
 	tc->jumpBuf = &buf;
 	if (setjmp(buf) == 0)
 	{
 		tc->ran = 1;
-		(tc->function)(tc);
+		function(tc);
 	}
 	tc->jumpBuf = 0;
+}
+
+void CuTestRun(CuTest* tc)
+{
+	TestFunctionRun(tc, tc->function);
 }
 
 static void CuFailInternal(CuTest* tc, const char* file, int line, CuString* string)
@@ -157,9 +161,13 @@ static void CuFailInternal(CuTest* tc, const char* file, int line, CuString* str
 	CuStringInsert(string, buf, 0);
 
 	tc->failed = 1;
-        free(tc->message);
-        tc->message = CuStringNew();
-        CuStringAppend(tc->message, string->buffer);
+	if (NULL != tc->message) {
+		CuStringAppend(tc->message, "\n");
+	}
+	else {
+		tc->message = CuStringNew();
+	}
+	CuStringAppend(tc->message, string->buffer);
 	if (tc->jumpBuf != 0) longjmp(*(tc->jumpBuf), 0);
 }
 
@@ -236,22 +244,53 @@ void CuAssertPtrEquals_LineMsg(CuTest* tc, const char* file, int line, const cha
 	CuFail_Line(tc, file, line, message, buf);
 }
 
+void *CuTestContextGet(CuTest *tc) {
+	return tc->context;
+}
+
+void CuTestContextSet(CuTest *tc, void *context) {
+	tc->context = context;
+}
 
 /*-------------------------------------------------------------------------*
  * CuSuite
  *-------------------------------------------------------------------------*/
+static void EmptySetup(CuTest *tc) {
+	(void)tc;
+}
+
+static void EmptyTeardown(CuTest *tc) {
+	(void)tc;
+}
+
+static const CuTestFrame EmptyFrame = {
+	.setup = EmptySetup,
+	.teardown = EmptyTeardown,
+};
 
 void CuSuiteInit(CuSuite* testSuite)
 {
+	CuSuiteInitWithFrame(testSuite, &EmptyFrame, NULL);
+}
+
+void CuSuiteInitWithFrame(CuSuite* testSuite, const CuTestFrame *frame, void *frameContext)
+{
 	testSuite->count = 0;
 	testSuite->failCount = 0;
-        memset(testSuite->list, 0, sizeof(testSuite->list));
+	memset(testSuite->list, 0, sizeof(testSuite->list));
+	testSuite->frame = frame;
+	testSuite->frameContext = frameContext;
+	testSuite->next = NULL;
 }
 
 CuSuite* CuSuiteNew(void)
 {
+	return CuSuiteNewWithFrame(&EmptyFrame, NULL);
+}
+
+CuSuite* CuSuiteNewWithFrame(const CuTestFrame *frame, void *frameContext) {
 	CuSuite* testSuite = CU_ALLOC(CuSuite);
-	CuSuiteInit(testSuite);
+	CuSuiteInitWithFrame(testSuite, frame, frameContext);
 	return testSuite;
 }
 
@@ -278,68 +317,100 @@ void CuSuiteAdd(CuSuite* testSuite, CuTest *testCase)
 
 void CuSuiteAddSuite(CuSuite* testSuite, CuSuite* testSuite2)
 {
-	int i;
-	for (i = 0 ; i < testSuite2->count ; ++i)
-	{
-		CuTest* testCase = testSuite2->list[i];
-		CuSuiteAdd(testSuite, testCase);
+	CuSuite *cursor = testSuite;
+	while (NULL != cursor->next) {
+		cursor = cursor->next;
 	}
+	cursor->next = testSuite2;
+	testSuite2->next = NULL;
 }
 
 void CuSuiteRun(CuSuite* testSuite)
 {
-	int i;
-	for (i = 0 ; i < testSuite->count ; ++i)
-	{
-		CuTest* testCase = testSuite->list[i];
-		CuTestRun(testCase);
-		if (testCase->failed) { testSuite->failCount += 1; }
+	while (NULL != testSuite) {
+		const CuTestFrame * const frame = testSuite->frame;
+		int i;
+
+		for (i = 0 ; i < testSuite->count ; ++i)
+		{
+			CuTest* testCase = testSuite->list[i];
+			testCase->context = testSuite->frameContext;
+
+			TestFunctionRun(testCase, frame->setup);
+			if (!testCase->failed) {
+				CuTestRun(testCase);
+				TestFunctionRun(testCase, frame->teardown);
+			}
+			testSuite->frameContext = testCase->context;
+			if (testCase->failed) { testSuite->failCount += 1; }
+		}
+
+		testSuite = testSuite->next;
 	}
 }
 
 void CuSuiteSummary(CuSuite* testSuite, CuString* summary)
 {
-	int i;
-	for (i = 0 ; i < testSuite->count ; ++i)
-	{
-		CuTest* testCase = testSuite->list[i];
-		CuStringAppend(summary, testCase->failed ? "F" : ".");
+	while (NULL != testSuite) {
+		int i;
+		for (i = 0 ; i < testSuite->count ; ++i)
+		{
+			CuTest* testCase = testSuite->list[i];
+			CuStringAppend(summary, testCase->failed ? "F" : ".");
+		}
+		testSuite = testSuite->next;
 	}
 	CuStringAppend(summary, "\n\n");
 }
 
 void CuSuiteDetails(CuSuite* testSuite, CuString* details)
 {
-	int i;
 	int failCount = 0;
+	int testCount = 0;
+	CuString epilogue;
+	const CuSuite *cursor = testSuite;
 
-	if (testSuite->failCount == 0)
-	{
-		int passCount = testSuite->count - testSuite->failCount;
-		const char* testWord = passCount == 1 ? "test" : "tests";
-		CuStringAppendFormat(details, "OK (%d %s)\n", passCount, testWord);
-	}
-	else
-	{
-		if (testSuite->failCount == 1)
-			CuStringAppend(details, "There was 1 failure:\n");
-		else
-			CuStringAppendFormat(details, "There were %d failures:\n", testSuite->failCount);
+	CuStringInit(&epilogue);
 
-		for (i = 0 ; i < testSuite->count ; ++i)
+	while (NULL != cursor) {
+		testCount += cursor->count;
+
+		int i;
+		for (i = 0 ; i < cursor->count ; ++i)
 		{
-			CuTest* testCase = testSuite->list[i];
+			CuTest* testCase = cursor->list[i];
 			if (testCase->failed)
 			{
 				failCount++;
-				CuStringAppendFormat(details, "%d) %s: %s\n",
-					failCount, testCase->name, testCase->message->buffer);
+				CuStringAppendFormat(&epilogue, "%d) %s: %s\n",
+						failCount, testCase->name, testCase->message->buffer);
 			}
 		}
-		CuStringAppend(details, "\n!!!FAILURES!!!\n");
 
-		CuStringAppendFormat(details, "Runs: %d ",   testSuite->count);
-		CuStringAppendFormat(details, "Passes: %d ", testSuite->count - testSuite->failCount);
-		CuStringAppendFormat(details, "Fails: %d\n",  testSuite->failCount);
+		cursor = cursor->next;
+	}
+
+	{
+		int passCount = testCount - failCount;
+
+		if (failCount == 0)
+		{
+			const char* testWord = passCount == 1 ? "test" : "tests";
+			CuStringAppendFormat(details, "OK (%d %s)\n", passCount, testWord);
+		}
+		else
+		{
+			if (failCount == 1)
+				CuStringAppend(details, "There was 1 failure:\n");
+			else
+				CuStringAppendFormat(details, "There were %d failures:\n", failCount);
+
+			CuStringAppend(details, epilogue.buffer);
+
+			CuStringAppend(details, "\n!!!FAILURES!!!\n");
+			CuStringAppendFormat(details, "Runs: %d ",   testCount);
+			CuStringAppendFormat(details, "Passes: %d ", passCount);
+			CuStringAppendFormat(details, "Fails: %d\n",  failCount);
+		}
 	}
 }
