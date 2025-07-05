@@ -71,6 +71,9 @@ void CuAssertLongEquals_LineMsg(CuTest* tc,
 void CuAssertULongEquals_LineMsg(CuTest* tc, 
 	const char* file, int line, const char* message, 
 	unsigned long expected, unsigned long actual);
+void CuAssertSizetEquals_LineMsg(CuTest* tc, 
+	const char* file, int line, const char* message, 
+	size_t expected, size_t actual);
 void CuAssertDblEquals_LineMsg(CuTest* tc, 
 	const char* file, int line, const char* message, 
 	double expected, double actual, double delta);
@@ -92,6 +95,8 @@ void CuAssertPtrEquals_LineMsg(CuTest* tc,
 #define CuAssertLongEquals_Msg(tc,ms,ex,ac)   CuAssertLongEquals_LineMsg((tc),__FILE__,__LINE__,(ms),(ex),(ac))
 #define CuAssertULongEquals(tc,ex,ac)         CuAssertULongEquals_LineMsg((tc),__FILE__,__LINE__,NULL,(ex),(ac))
 #define CuAssertULongEquals_Msg(tc,ms,ex,ac)  CuAssertULongEquals_LineMsg((tc),__FILE__,__LINE__,(ms),(ex),(ac))
+#define CuAssertSizetEquals(tc,ex,ac)         CuAssertSizetEquals_LineMsg((tc),__FILE__,__LINE__,NULL,(ex),(ac))
+#define CuAssertSizetEquals_Msg(tc,ms,ex,ac)  CuAssertSizetEquals_LineMsg((tc),__FILE__,__LINE__,(ms),(ex),(ac))
 #define CuAssertDblEquals(tc,ex,ac,dl)        CuAssertDblEquals_LineMsg((tc),__FILE__,__LINE__,NULL,(ex),(ac),(dl))
 #define CuAssertDblEquals_Msg(tc,ms,ex,ac,dl) CuAssertDblEquals_LineMsg((tc),__FILE__,__LINE__,(ms),(ex),(ac),(dl))
 #define CuAssertPtrEquals(tc,ex,ac)           CuAssertPtrEquals_LineMsg((tc),__FILE__,__LINE__,NULL,(ex),(ac))
