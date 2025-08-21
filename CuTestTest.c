@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
 
 #include "CuTest.h"
 
@@ -172,24 +173,30 @@ void TestCuTestInit(CuTest *tc)
 
 void TestCuAssert(CuTest* tc)
 {
+	CuTest tc1;
+	CuTestInit(&tc1, "MyTest", TestPasses);
+	CuAssert(&tc1, "test 1", 5 == 4 + 1);
+	CuAssertTrue(tc, !tc1.failed);
+	CuAssertTrue(tc, tc1.message == NULL);
+
 	CuTest tc2;
 	CuTestInit(&tc2, "MyTest", TestPasses);
-
-	CuAssert(&tc2, "test 1", 5 == 4 + 1);
-	CuAssertTrue(tc, !tc2.failed);
-        CuAssertTrue(tc, tc2.message == NULL);
-
 	CuAssert(&tc2, "test 2", 0);
 	CuAssertTrue(tc, tc2.failed);
 	CompareAsserts(tc, "CuAssert didn't fail", "test 2", tc2.message);
 
-	CuAssert(&tc2, "test 3", 1);
-	CuAssertTrue(tc, tc2.failed);
-	CompareAsserts(tc, "CuAssert didn't fail", "test 2", tc2.message);
+	CuTest tc3;
+	CuTestInit(&tc3, "MyTest", TestPasses);
+	CuAssert(&tc3, "test 2", 0);
+	CuAssert(&tc3, "test 3", 1);
+	CuAssertTrue(tc, tc3.failed);
+	CompareAsserts(tc, "CuAssert didn't fail", "test 2", tc3.message);
 
-	CuAssert(&tc2, "test 4", 0);
-	CuAssertTrue(tc, tc2.failed);
-	CompareAsserts(tc, "CuAssert didn't fail", "test 4", tc2.message);
+	CuTest tc4;
+	CuTestInit(&tc4, "MyTest", TestPasses);
+	CuAssert(&tc4, "test 4", 0);
+	CuAssertTrue(tc, tc4.failed);
+	CompareAsserts(tc, "CuAssert didn't fail", "test 4", tc4.message);
 
 }
 
@@ -269,6 +276,7 @@ void TestCuSuiteInit(CuTest* tc)
 	CuSuiteInit(&ts);
 	CuAssertTrue(tc, ts.count == 0);
 	CuAssertTrue(tc, ts.failCount == 0);
+	CuAssertPtrEquals(tc, NULL, ts.next);
 }
 
 void TestCuSuiteNew(CuTest* tc)
@@ -276,6 +284,7 @@ void TestCuSuiteNew(CuTest* tc)
 	CuSuite* ts = CuSuiteNew();
 	CuAssertTrue(tc, ts->count == 0);
 	CuAssertTrue(tc, ts->failCount == 0);
+	CuAssertPtrEquals(tc, NULL, ts->next);
 }
 
 void TestCuSuiteAddTest(CuTest* tc)
@@ -304,12 +313,14 @@ void TestCuSuiteAddSuite(CuTest* tc)
 	CuSuiteAdd(ts2, CuTestNew("TestFails4", zTestFails));
 
 	CuSuiteAddSuite(ts1, ts2);
-	CuAssertIntEquals(tc, 4, ts1->count);
+	CuAssertIntEquals(tc, 2, ts1->count);
+	CuAssertIntEquals(tc, 2, ts2->count);
+	CuAssertPtrEquals(tc, ts2, ts1->next);
 
 	CuAssertStrEquals(tc, "TestFails1", ts1->list[0]->name);
 	CuAssertStrEquals(tc, "TestFails2", ts1->list[1]->name);
-	CuAssertStrEquals(tc, "TestFails3", ts1->list[2]->name);
-	CuAssertStrEquals(tc, "TestFails4", ts1->list[3]->name);
+	CuAssertStrEquals(tc, "TestFails3", ts2->list[0]->name);
+	CuAssertStrEquals(tc, "TestFails4", ts2->list[1]->name);
 }
 
 void TestCuSuiteRun(CuTest* tc)
@@ -526,18 +537,21 @@ void TestFail(CuTest* tc)
 void TestAssertStrEquals(CuTest* tc)
 {
 	jmp_buf buf;
-	CuTest *tc2 = CuTestNew("TestAssertStrEquals", zTestFails);
 
 	const char* expected = "expected <hello> but was <world>";
 	const char *expectedMsg = "some text: expected <hello> but was <world>";
 
-	tc2->jumpBuf = &buf;
+	CuTest *tc1 = CuTestNew("TestAssertStrEquals", zTestFails);
+	tc1->jumpBuf = &buf;
 	if (setjmp(buf) == 0)
 	{
-		CuAssertStrEquals(tc2, "hello", "world");
+		CuAssertStrEquals(tc1, "hello", "world");
 	}
-	CuAssertTrue(tc, tc2->failed);
-	CompareAsserts(tc, "CuAssertStrEquals failed", expected, tc2->message);
+	CuAssertTrue(tc, tc1->failed);
+	CompareAsserts(tc, "CuAssertStrEquals failed", expected, tc1->message);
+
+	CuTest *tc2 = CuTestNew("TestAssertStrEquals", zTestFails);
+	tc2->jumpBuf = &buf;
 	if (setjmp(buf) == 0)
 	{
 		CuAssertStrEquals_Msg(tc2, "some text", "hello", "world");
@@ -569,18 +583,21 @@ void TestAssertStrEquals_NULL(CuTest* tc)
 void TestAssertStrEquals_FailNULLStr(CuTest* tc)
 {
 	jmp_buf buf;
-	CuTest *tc2 = CuTestNew("TestAssertStrEquals_FailNULLStr", zTestFails);
 
 	const char* expected = "expected <hello> but was <NULL>";
 	const char *expectedMsg = "some text: expected <hello> but was <NULL>";
 
-	tc2->jumpBuf = &buf;
+	CuTest *tc1 = CuTestNew("TestAssertStrEquals_FailNULLStr", zTestFails);
+	tc1->jumpBuf = &buf;
 	if (setjmp(buf) == 0)
 	{
-		CuAssertStrEquals(tc2, "hello", NULL);
+		CuAssertStrEquals(tc1, "hello", NULL);
 	}
-	CuAssertTrue(tc, tc2->failed);
-	CompareAsserts(tc, "CuAssertStrEquals_FailNULLStr failed", expected, tc2->message);
+	CuAssertTrue(tc, tc1->failed);
+	CompareAsserts(tc, "CuAssertStrEquals_FailNULLStr failed", expected, tc1->message);
+
+	CuTest *tc2 = CuTestNew("TestAssertStrEquals_FailNULLStr", zTestFails);
+	tc2->jumpBuf = &buf;
 	if (setjmp(buf) == 0)
 	{
 		CuAssertStrEquals_Msg(tc2, "some text", "hello", NULL);
@@ -592,18 +609,20 @@ void TestAssertStrEquals_FailNULLStr(CuTest* tc)
 void TestAssertStrEquals_FailStrNULL(CuTest* tc)
 {
 	jmp_buf buf;
-	CuTest *tc2 = CuTestNew("TestAssertStrEquals_FailStrNULL", zTestFails);
-
 	const char* expected = "expected <NULL> but was <hello>";
 	const char *expectedMsg = "some text: expected <NULL> but was <hello>";
 
-	tc2->jumpBuf = &buf;
+	CuTest *tc1 = CuTestNew("TestAssertStrEquals_FailStrNULL", zTestFails);
+	tc1->jumpBuf = &buf;
 	if (setjmp(buf) == 0)
 	{
-		CuAssertStrEquals(tc2, NULL, "hello");
+		CuAssertStrEquals(tc1, NULL, "hello");
 	}
-	CuAssertTrue(tc, tc2->failed);
-	CompareAsserts(tc, "CuAssertStrEquals_FailStrNULL failed", expected, tc2->message);
+	CuAssertTrue(tc, tc1->failed);
+	CompareAsserts(tc, "CuAssertStrEquals_FailStrNULL failed", expected, tc1->message);
+
+	CuTest *tc2 = CuTestNew("TestAssertStrEquals_FailStrNULL", zTestFails);
+	tc2->jumpBuf = &buf;
 	if (setjmp(buf) == 0)
 	{
 		CuAssertStrEquals_Msg(tc2, "some text", NULL, "hello");
@@ -615,16 +634,19 @@ void TestAssertStrEquals_FailStrNULL(CuTest* tc)
 void TestAssertIntEquals(CuTest* tc)
 {
 	jmp_buf buf;
-	CuTest *tc2 = CuTestNew("TestAssertIntEquals", zTestFails);
+	CuTest *tc1 = CuTestNew("TestAssertIntEquals", zTestFails);
 	const char* expected = "expected <42> but was <32>";
 	const char* expectedMsg = "some text: expected <42> but was <32>";
-	tc2->jumpBuf = &buf;
+	tc1->jumpBuf = &buf;
 	if (setjmp(buf) == 0)
 	{
-		CuAssertIntEquals(tc2, 42, 32);
+		CuAssertIntEquals(tc1, 42, 32);
 	}
-	CuAssertTrue(tc, tc2->failed);
-	CompareAsserts(tc, "CuAssertIntEquals failed", expected, tc2->message);
+	CuAssertTrue(tc, tc1->failed);
+	CompareAsserts(tc, "CuAssertIntEquals failed", expected, tc1->message);
+
+	CuTest *tc2 = CuTestNew("TestAssertIntEquals", zTestFails);
+	tc2->jumpBuf = &buf;
 	if (setjmp(buf) == 0)
 	{
 		CuAssertIntEquals_Msg(tc2, "some text", 42, 32);
@@ -661,13 +683,15 @@ void TestAssertDblEquals(CuTest* tc)
 	}
 	CuAssertTrue(tc, tc2->failed);
 	CompareAsserts(tc, "CuAssertDblEquals failed", expected, tc2->message);
-	tc2->jumpBuf = &buf;
+
+	CuTest *tc3 = CuTestNew("TestAssertDblEquals", zTestFails);
+	tc3->jumpBuf = &buf;
 	if (setjmp(buf) == 0)
 	{
-		CuAssertDblEquals_Msg(tc2, "some text", x, y, 0.001);
+		CuAssertDblEquals_Msg(tc3, "some text", x, y, 0.001);
 	}
-	CuAssertTrue(tc, tc2->failed);
-	CompareAsserts(tc, "CuAssertDblEquals failed", expectedMsg, tc2->message);
+	CuAssertTrue(tc, tc3->failed);
+	CompareAsserts(tc, "CuAssertDblEquals failed", expectedMsg, tc3->message);
 }
 
 /*-------------------------------------------------------------------------*
@@ -710,3 +734,413 @@ CuSuite* CuGetSuite(void)
 
 	return suite;
 }
+
+typedef enum TestPhase {
+	UNKNOWN = 0,
+	SETUP,
+	TEST,
+	TEARDOWN
+}TestPhase;
+
+#define TEST_PHASE_RECORDER_LEN 50
+
+typedef struct TestPhaseRecorder {
+	TestPhase TestSequence[TEST_PHASE_RECORDER_LEN];
+	size_t    pos;
+}TestPhaseTracker;
+
+static void TestPhaseRecord(TestPhaseTracker *tracker, TestPhase phase) {
+	if (tracker->pos < TEST_PHASE_RECORDER_LEN) {
+		tracker->TestSequence[tracker->pos++] = phase;
+	}
+}
+
+static void TestPhaseNoMoreEventsFrom(CuTest *tc, TestPhaseTracker *tracker, size_t pos) {
+	for (size_t i = pos;i < TEST_PHASE_RECORDER_LEN;i++) {
+		CuAssertIntEquals(tc, UNKNOWN, tracker->TestSequence[i]);
+	}
+}
+
+static struct TestMockData {
+	TestPhaseTracker tracker;
+
+	void *ContextPassed;
+
+	bool setupShallFail;
+	bool teardownShallFail;
+	bool testShallFail;
+
+	bool setupContinuedAfterAssert;
+	bool testContinuedAfterAssert;
+	bool teardownContinuedAfterAssert;
+}TestMockData;
+
+static void TestMockDataInit(void) {
+	memset(&TestMockData, 0, sizeof(TestMockData));
+}
+
+static void FrameMockSetup(CuTest *tc) {
+	bool fail = TestMockData.setupShallFail;
+	TestMockData.setupShallFail = false;
+
+	TestPhaseRecord(&TestMockData.tracker, SETUP);
+
+	CuAssert(tc, "Setup has to fail", !fail);
+	TestMockData.setupContinuedAfterAssert = true;
+}
+
+static void FrameMockTest(CuTest *tc) {
+	bool fail = TestMockData.testShallFail;
+	TestMockData.testShallFail = false;
+
+	TestPhaseRecord(&TestMockData.tracker, TEST);
+	TestMockData.ContextPassed = CuTestContextGet(tc);
+
+	CuAssert(tc, "Test has to fail", !fail);
+	TestMockData.testContinuedAfterAssert = true;
+}
+
+static void FrameMockTearDown(CuTest *tc) {
+	bool fail = TestMockData.teardownShallFail;
+	TestMockData.teardownShallFail = false;
+
+	TestPhaseRecord(&TestMockData.tracker, TEARDOWN);
+
+	CuAssert(tc, "Teardown has to fail", !fail);
+	TestMockData.teardownContinuedAfterAssert = true;
+}
+
+static const CuTestFrame FrameMock = {
+	.setup = FrameMockSetup,
+	.teardown = FrameMockTearDown,
+};
+
+static void TestSuiteWithFrameInit(CuTest *tc) {
+	CuSuite ts;
+	int context = 0;
+	CuSuiteInitWithFrame(&ts, &FrameMock, &context);
+	CuAssertPtrEquals(tc, (void *)&FrameMock, (void *)ts.frame);
+	CuAssertPtrEquals(tc, &context, ts.frameContext);
+}
+
+static void TestSuiteWithFrameNew(CuTest *tc) {
+	int context = 0;
+	CuSuite* ts = CuSuiteNewWithFrame(&FrameMock, &context);
+	CuAssertPtrEquals(tc, (void *)&FrameMock, (void *)ts->frame);
+	CuAssertPtrEquals(tc, &context, ts->frameContext);
+}
+
+static void TestSuiteRunsSetupTestTeardown(CuTest *tc) {
+	int context = 0;
+	TestMockDataInit();
+	CuSuite* uut = CuSuiteNewWithFrame(&FrameMock, &context);
+
+	SUITE_ADD_TEST(uut, FrameMockTest);
+
+	CuSuiteRun(uut);
+
+	TestPhaseTracker *tracker = &TestMockData.tracker;
+	CuAssertIntEquals(tc, SETUP, tracker->TestSequence[0]);
+	CuAssertIntEquals(tc, TEST, tracker->TestSequence[1]);
+	CuAssertIntEquals(tc, TEARDOWN, tracker->TestSequence[2]);
+	TestPhaseNoMoreEventsFrom(tc, tracker, 3);
+}
+
+static void TestSuiteTestFailsIfSetupFails(CuTest *tc) {
+	int context = 0;
+	TestMockDataInit();
+	CuSuite* uut = CuSuiteNewWithFrame(&FrameMock, &context);
+
+	SUITE_ADD_TEST(uut, FrameMockTest);
+	SUITE_ADD_TEST(uut, TestPasses);
+
+	TestMockData.setupShallFail = true;
+
+	CuSuiteRun(uut);
+
+	CuAssertIntEquals(tc, 2, uut->count);
+	CuAssertIntEquals(tc, 1, uut->failCount);
+
+	TestPhaseTracker *tracker = &TestMockData.tracker;
+	CuAssertIntEquals(tc, SETUP, tracker->TestSequence[0]);
+	CuAssertIntEquals(tc, SETUP, tracker->TestSequence[1]);
+	CuAssertIntEquals(tc, TEARDOWN, tracker->TestSequence[2]);
+	TestPhaseNoMoreEventsFrom(tc, tracker, 3);
+}
+
+static void TestSuiteTestFailsIfTeardownFails(CuTest *tc) {
+	int context = 0;
+	TestMockDataInit();
+	CuSuite* uut = CuSuiteNewWithFrame(&FrameMock, &context);
+
+	SUITE_ADD_TEST(uut, FrameMockTest);
+
+	TestMockData.teardownShallFail = true;
+
+	CuSuiteRun(uut);
+
+	CuAssertIntEquals(tc, 1, uut->count);
+	CuAssertIntEquals(tc, 1, uut->failCount);
+}
+
+static void TestSuiteTeardownIsExecutedIfTestFails(CuTest *tc) {
+	int context = 0;
+	TestMockDataInit();
+	CuSuite* uut = CuSuiteNewWithFrame(&FrameMock, &context);
+
+	SUITE_ADD_TEST(uut, FrameMockTest);
+
+	TestMockData.testShallFail = true;
+
+	CuSuiteRun(uut);
+
+	CuAssertIntEquals(tc, 1, uut->count);
+	CuAssertIntEquals(tc, 1, uut->failCount);
+
+	TestPhaseTracker *tracker = &TestMockData.tracker;
+	CuAssertIntEquals(tc, SETUP, tracker->TestSequence[0]);
+	CuAssertIntEquals(tc, TEST, tracker->TestSequence[1]);
+	CuAssertIntEquals(tc, TEARDOWN, tracker->TestSequence[2]);
+	TestPhaseNoMoreEventsFrom(tc, tracker, 3);
+}
+
+static void TestSuiteFailingTestMessageIsPreservedWhenTeardownFails(CuTest *tc) {
+	int context = 0;
+	TestMockDataInit();
+	CuSuite* uut = CuSuiteNewWithFrame(&FrameMock, &context);
+
+	SUITE_ADD_TEST(uut, FrameMockTest);
+
+	TestMockData.testShallFail = true;
+	TestMockData.teardownShallFail = true;
+
+	CuSuiteRun(uut);
+
+	char *message = uut->list[0]->message->buffer;
+	char *testFailMsg = strstr(message, "Test has to fail\n");
+	char *teardownFailMsg = strstr(message, "Teardown has to fail");
+
+	CuAssertPtrNotNullMsg(tc, "Test fail message not found", testFailMsg);
+	CuAssertPtrNotNullMsg(tc, "Teardown fail message not found", teardownFailMsg);
+	CuAssert(tc, "Message order correct", testFailMsg < teardownFailMsg);
+}
+
+static void TestSuiteContextPassedToCuTest(CuTest *tc) {
+	int context = 0;
+	TestMockDataInit();
+	CuSuite* uut = CuSuiteNewWithFrame(&FrameMock, &context);
+
+	SUITE_ADD_TEST(uut, FrameMockTest);
+
+	CuSuiteRun(uut);
+
+	CuAssertPtrEquals(tc, &context, TestMockData.ContextPassed);
+}
+
+static void TestSuiteSetupInterruptsUponFailedAssert(CuTest *tc) {
+	int context = 0;
+	TestMockDataInit();
+	CuSuite* uut = CuSuiteNewWithFrame(&FrameMock, &context);
+	TestMockData.setupShallFail = true;
+	SUITE_ADD_TEST(uut, FrameMockTest);
+
+	CuSuiteRun(uut);
+
+	CuAssert(tc, "Setup did continue", !TestMockData.setupContinuedAfterAssert);
+}
+
+static void TestSuiteTestInterruptsUponFailedAssert(CuTest *tc) {
+	int context = 0;
+	TestMockDataInit();
+	CuSuite* uut = CuSuiteNewWithFrame(&FrameMock, &context);
+	TestMockData.testShallFail = true;
+	SUITE_ADD_TEST(uut, FrameMockTest);
+
+	CuSuiteRun(uut);
+
+	CuAssert(tc, "Test did continue", !TestMockData.testContinuedAfterAssert);
+}
+
+static void TestSuiteTeardownInterruptsUponFailedAssert(CuTest *tc) {
+	int context = 0;
+	TestMockDataInit();
+	CuSuite* uut = CuSuiteNewWithFrame(&FrameMock, &context);
+	TestMockData.teardownShallFail = true;
+	SUITE_ADD_TEST(uut, FrameMockTest);
+
+	CuSuiteRun(uut);
+
+	CuAssert(tc, "Teardown did continue", !TestMockData.teardownContinuedAfterAssert);
+}
+
+static void *TheSetupContext;
+static void *TheTestContext;
+static void *TheTeardownContext;
+
+static void FrameContextSetup(CuTest *tc) {
+	TheSetupContext = CuTestContextGet(tc);
+	CuTestContextSet(tc, &TheSetupContext);
+}
+
+static void FrameContextTest(CuTest *tc) {
+	TheTestContext = CuTestContextGet(tc);
+	CuTestContextSet(tc, &TheTestContext);
+}
+
+static void FrameContextTearDown(CuTest *tc) {
+	TheTeardownContext = CuTestContextGet(tc);
+	CuTestContextSet(tc, &TheTeardownContext);
+}
+
+static const CuTestFrame FrameContextMock = {
+	.setup = FrameContextSetup,
+	.teardown = FrameContextTearDown,
+};
+
+static void TestSuiteSetupTestTeardownWithContext(CuTest *tc) {
+	int context = 0;
+
+	TheSetupContext = NULL;
+	TheTestContext = NULL;
+	TheTeardownContext = NULL;
+
+	CuSuite* uut = CuSuiteNewWithFrame(&FrameContextMock, &context);
+
+	SUITE_ADD_TEST(uut, FrameContextTest);
+
+	CuSuiteRun(uut);
+
+	CuAssertPtrEquals(tc, &context, TheSetupContext);
+	CuAssertPtrEquals(tc, &TheSetupContext, TheTestContext);
+	CuAssertPtrEquals(tc, &TheTestContext, TheTeardownContext);
+	CuAssertPtrEquals(tc, &TheTeardownContext, uut->frameContext);
+}
+
+static void TestSuitesSetupTestTeardownWithTwoSeparateContexts(CuTest *tc) {
+	int context = 0;
+
+	TheSetupContext = NULL;
+	TheTestContext = NULL;
+	TheTeardownContext = NULL;
+
+	CuSuite* uut = CuSuiteNew();
+	CuSuite* uut2 = CuSuiteNewWithFrame(&FrameContextMock, &context);
+
+	SUITE_ADD_TEST(uut2, FrameContextTest);
+
+	CuSuiteAddSuite(uut, uut2);
+
+	CuSuiteRun(uut);
+
+	CuAssertPtrEquals(tc, &context, TheSetupContext);
+}
+
+CuSuite* CuSuiteFrameGetSuite(void) {
+	CuSuite* suite = CuSuiteNew();
+
+	SUITE_ADD_TEST(suite, TestSuiteWithFrameInit);
+	SUITE_ADD_TEST(suite, TestSuiteWithFrameNew);
+	SUITE_ADD_TEST(suite, TestSuiteRunsSetupTestTeardown);
+	SUITE_ADD_TEST(suite, TestSuiteTestFailsIfSetupFails);
+	SUITE_ADD_TEST(suite, TestSuiteTestFailsIfTeardownFails);
+	SUITE_ADD_TEST(suite, TestSuiteTeardownIsExecutedIfTestFails);
+	SUITE_ADD_TEST(suite, TestSuiteFailingTestMessageIsPreservedWhenTeardownFails);
+	SUITE_ADD_TEST(suite, TestSuiteContextPassedToCuTest);
+	SUITE_ADD_TEST(suite, TestSuiteSetupInterruptsUponFailedAssert);
+	SUITE_ADD_TEST(suite, TestSuiteTestInterruptsUponFailedAssert);
+	SUITE_ADD_TEST(suite, TestSuiteTeardownInterruptsUponFailedAssert);
+	SUITE_ADD_TEST(suite, TestSuiteSetupTestTeardownWithContext);
+	SUITE_ADD_TEST(suite, TestSuitesSetupTestTeardownWithTwoSeparateContexts);
+
+	return suite;
+}
+
+static void TestSuiteChainSetup(CuTest *tc) {
+	CuSuite *uut = CuSuiteNew();
+
+	CuSuite *uut2 = CuSuiteNew();
+	SUITE_ADD_TEST(uut2, TestPasses);
+	SUITE_ADD_TEST(uut2, TestPasses);
+
+	CuSuite *uut3 = CuSuiteNew();
+	SUITE_ADD_TEST(uut3, zTestFails);
+	SUITE_ADD_TEST(uut3, TestPasses);
+
+	CuSuite *uut4 = CuSuiteNew();
+	SUITE_ADD_TEST(uut4, TestPasses);
+
+	CuSuiteAddSuite(uut, uut2);
+	CuSuiteAddSuite(uut, uut3);
+	CuSuiteAddSuite(uut, uut4);
+
+	CuSuiteRun(uut);
+
+	CuTestContextSet(tc, uut);
+}
+
+static void TestSuiteChainTeardown(CuTest *tc) {
+	CuSuite *uut = CuTestContextGet(tc);
+	CuTestContextSet(tc, NULL);
+
+	CuSuite *toDelete = uut;
+	while (NULL != toDelete) {
+		CuSuite *next = toDelete->next;
+		CuSuiteDelete(toDelete);
+		toDelete = next;
+	}
+}
+
+static const CuTestFrame TestSuiteChainFrame =  {
+	.setup = TestSuiteChainSetup,
+	.teardown = TestSuiteChainTeardown,
+};
+
+static void TestFrameSuiteChainStatistics(CuTest *tc) {
+	CuSuite *uut = CuTestContextGet(tc);
+	CuSuite *uut2 = uut->next;
+	CuSuite *uut3 = uut2->next;
+	CuSuite *uut4 = uut3->next;
+
+	CuAssertIntEquals(tc, 0, uut->count);
+	CuAssertIntEquals(tc, 0, uut->failCount);
+	CuAssertIntEquals(tc, 2, uut2->count);
+	CuAssertIntEquals(tc, 0, uut2->failCount);
+	CuAssertIntEquals(tc, 2, uut3->count);
+	CuAssertIntEquals(tc, 1, uut3->failCount);
+	CuAssertIntEquals(tc, 1, uut4->count);
+	CuAssertIntEquals(tc, 0, uut4->failCount);
+}
+
+static void TestFrameSuiteChainSummary(CuTest *tc) {
+	CuSuite *uut = CuTestContextGet(tc);
+
+	const char *expectedSummary = "..F..\n\n";
+	CuString summary;
+	CuStringInit(&summary);
+	CuSuiteSummary(uut, &summary);
+	CuAssertStrEquals(tc, expectedSummary, summary.buffer);
+}
+
+static void TestFrameSuiteChainDetails(CuTest *tc) {
+	CuSuite *uut = CuTestContextGet(tc);
+
+	const char* expectedDetails = "There was 1 failure:\n"
+								  "1) zTestFails: ../CuTestTest.c:143: test should fail\n\n"
+			                      "!!!FAILURES!!!\n"
+			                      "Runs: 5 Passes: 4 Fails: 1\n";
+	CuString details;
+	CuStringInit(&details);
+	CuSuiteDetails(uut, &details);
+	CuAssertStrEquals(tc, expectedDetails, details.buffer);
+}
+
+CuSuite* CuSuiteChainGetSuite(void) {
+	CuSuite* suite = CuSuiteNewWithFrame(&TestSuiteChainFrame, NULL);
+
+	SUITE_ADD_TEST(suite, TestFrameSuiteChainStatistics);
+	SUITE_ADD_TEST(suite, TestFrameSuiteChainSummary);
+	SUITE_ADD_TEST(suite, TestFrameSuiteChainDetails);
+
+	return suite;
+}
+

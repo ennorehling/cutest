@@ -154,6 +154,13 @@ to form a CuSuite. CuSuites can hold CuTests or other CuSuites.
 AllTests.c collects all the CuSuites in the program into a single
 CuSuite which it then runs as a single CuSuite.
 
+A CuSuite also allows you to execute setup (for preparations) and 
+teardown (for cleanup) procedures that are shared among all tests
+grouped in the respective suite. This is typically used to create
+and/or setup your unit under test and simplifies the actual test
+to be executed. A typical use is shown below in the section 
+"USING THE SETUP-TEARDOWN FACILITY". 
+
 The project is open source so feel free to take a peek under the
 hood at the CuTest.c file to see how it works. CuTestTest.c
 contains tests for CuTest.c. So CuTest tests itself.
@@ -199,6 +206,91 @@ directory and generate the code to run all the tests contained in
 them. Using this script you don't have to worry about writing
 AllTests.c or dealing with any of the other suite code.
 
+USING SETUP-TEARDOWN FACILITY
+Virtually every test should be written in a setup-test-assert-
+tearodwn sequence. Although test and assertion vary depending on 
+the concrete test cases, it's quite common, that a group of tests
+have a common starting point or common needs that have to be 
+setup before the test is executed. Those can be grouped in a suite
+where they share their setup and teardown code. 
+
+Below is a code example showing how this can be done based on an
+assumed vector arithmetics library that is supposed to be tested.
+
+For the demonstration it is assumed, that a Point.h & Point.c 
+file exist implementing some vector arithmetics:    
+    typedef struct PointXY {
+      int x;
+      int y;
+    }PointXY;
+    
+    void POINT_add(PointXY *result, const PointXY *a, const PointXY *b) {
+        ...
+    }
+    
+    void POINT_sub(PointXY *result, const PointXY *a, const PointXY *b) {
+        ...
+    }
+
+In order to test those functions, your PointTest.c would look as follows:
+    #include "CuTest.h"
+    
+    static void PointSetup(CuTest *tc) {
+        PointXY *uut = calloc(2, sizeof PointXY);
+        uut[0].x = 1;
+        uut[0].y = -3;
+
+        uut[1].x = 5;
+        uut[1].y = -7;
+        CuTestContextSet(tc, uut);
+    }
+    
+    static void PointTeardown(CuTest *tc) {
+        PointXY *uut = CuTestContextGet(tc);
+        CuTestContextSet(tc, NULL);
+        free(uut);
+        uut = NULL;
+    }
+
+    static const CuTestFrame PointTestFrame = {
+        .setup = PointSetup,
+        .teardown = PointTeardown,
+    };
+    
+    void TestVectorAddition(CuTest *tc) {
+        PointXY result;
+        PointXY *args = CuTestContextGet(tc);
+        
+        POINT_add(&result, &(args[0]), &(args[1]));
+        
+        CuAssertIntEquals(tc, 6, result.x);
+        CuAssertIntEquals(tc, -10, result.y);
+    }
+    
+    void TestVectorSubstract(CuTest *tc) {
+        PointXY result;
+        PointXY *args = CuTestContextGet(tc);
+        
+        POINT_sub(&result, &(args[0]), &(args[1]));
+        
+        CuAssertIntEquals(tc, -4, result.x);
+        CuAssertIntEquals(tc, 4, result.y);
+    }
+   
+    CuSuite* PointTestSuiteGet() {
+        CuSuite* suite = CuSuiteNewWithFrame(&PointTestFrame, NULL);
+        
+        SUITE_ADD_TEST(suite, TestVectorAddition);
+        SUITE_ADD_TEST(suite, TestVectorSubstract);
+        
+        return suite;
+    }
+
+The second parameter for CuSuiteNewWithFrame can be used to preset 
+the context to the test respectively the setup function that is called.
+
+A context modified during test execution is always brought back to the
+suite. Hence be careful to not introduce test interdependencies.
 
 CREDITS
 
